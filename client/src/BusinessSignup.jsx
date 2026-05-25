@@ -1,11 +1,11 @@
-﻿import React from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, ChevronRight, ChevronLeft, Eye, EyeOff, 
   Loader, CheckCircle, Hotel, Dumbbell, CalendarDays,
   Building2, Sparkles
 } from 'lucide-react';
-import API_BASE from './config';
+const API_BASE = 'https://booking-hub-api.onrender.com';
 
 var nigerianStates = [
   'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',

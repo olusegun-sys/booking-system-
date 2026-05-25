@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Building2, X, LogIn, Eye, EyeOff, Mail, Lock, ArrowRight, Shield } from 'lucide-react';
-import API_BASE from './config';
+const API_BASE = 'https://booking-hub-api.onrender.com';
 
 function AdminLogin({ onLogin }) {
   const [email, setEmail] = useState('');
