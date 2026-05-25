@@ -10,25 +10,24 @@ const detectBusinessFromDomain = require('./src/middleware/domainDetector');
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-if (!supabaseUrl || !supabaseKey) { console.error('Missing Supabase credentials'); process.exit(1); }
+if (!supabaseUrl || !supabaseKey) { 
+  console.error('Missing Supabase credentials'); 
+  process.exit(1); 
+}
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ============================================================
-// CORS CONFIGURATION - Restrict to allowed origins
+// CORS CONFIGURATION
 // ============================================================
 const ALLOWED_ORIGINS = process.env.NODE_ENV === 'production'
-  ? (process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [
-      'https://your-frontend.vercel.app',
-      'https://yourdomain.com'
-    ])
+  ? (process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
   : ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.1.122:5173'];
 
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
       callback(null, true);
@@ -79,13 +78,10 @@ function getLocalIpAddress() {
 // ============================================================
 // AUTHENTICATION MIDDLEWARE
 // ============================================================
-
-// Verify business authentication
 async function authenticateBusiness(req, res, next) {
   const businessId = req.params.businessId || req.params.id;
   const authHeader = req.headers.authorization;
   
-  // Skip auth for public routes in development
   if (process.env.NODE_ENV !== 'production' && !authHeader) {
     console.log('⚠️ Development mode: skipping auth for business route');
     req.businessId = businessId;
@@ -121,11 +117,9 @@ async function authenticateBusiness(req, res, next) {
   }
 }
 
-// Verify admin authentication
 async function authenticateAdmin(req, res, next) {
   const authHeader = req.headers.authorization;
   
-  // Skip auth for admin routes in development
   if (process.env.NODE_ENV !== 'production' && !authHeader) {
     console.log('⚠️ Development mode: skipping auth for admin route');
     return next();
@@ -157,10 +151,24 @@ async function authenticateAdmin(req, res, next) {
 }
 
 // ============================================================
-// PUBLIC ROUTES (No auth required)
+// PUBLIC ROUTES
 // ============================================================
 
 app.get('/api/test', (req, res) => res.json({ message: 'Backend is connected!', timestamp: new Date().toISOString() }));
+
+// Supabase Connection Test Endpoint
+app.get('/api/supabase-test', async (req, res) => {
+  try {
+    const { data, error, count } = await supabase
+      .from('businesses')
+      .select('*', { count: 'exact', head: true });
+    if (error) throw error;
+    res.json({ success: true, message: 'Supabase connected!', count: count });
+  } catch (error) {
+    console.error('Supabase test error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 app.get('/api/domain-info', async (req, res) => {
   try {
@@ -242,7 +250,7 @@ app.post('/api/businesses/register', async (req, res) => {
 });
 
 // ============================================================
-// BUSINESS LOGIN - Returns token
+// BUSINESS LOGIN
 // ============================================================
 
 app.post('/api/businesses/login', async (req, res) => {
@@ -285,7 +293,6 @@ app.post('/api/businesses/login', async (req, res) => {
       return res.status(401).json({ success: false, error: 'Invalid credentials.' });
     }
     
-    // Create session token
     const token = generateToken();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
@@ -310,7 +317,7 @@ app.post('/api/businesses/login', async (req, res) => {
 });
 
 // ============================================================
-// ADMIN LOGIN - Returns token
+// ADMIN LOGIN
 // ============================================================
 
 app.post('/api/admin/login', async (req, res) => {
@@ -373,6 +380,69 @@ app.post('/api/admin/login', async (req, res) => {
 });
 
 // ============================================================
+// ADMIN ROUTES (Auth disabled for development)
+// ============================================================
+
+app.get('/api/admin/businesses', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('businesses').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json({ success: true, businesses: data });
+  } catch (error) {
+    console.error('Fetch businesses error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch businesses' });
+  }
+});
+
+app.put('/api/admin/businesses/:id/status', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('businesses').update({ status: req.body.status }).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    if (req.body.status === 'approved' && data) { sendApprovalEmail(data).catch(err => console.error('Approval email failed:', err)); }
+    res.json({ success: true, business: data });
+  } catch (error) {
+    console.error('Status update error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update status' });
+  }
+});
+
+app.delete('/api/admin/businesses/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: business, error: findError } = await supabase.from('businesses').select('id, name').eq('id', id).single();
+    if (findError || !business) return res.status(404).json({ success: false, error: 'Business not found.' });
+    
+    await supabase.from('business_gallery').delete().eq('business_id', id);
+    await supabase.from('availability').delete().eq('business_id', id);
+    await supabase.from('operating_hours').delete().eq('business_id', id);
+    await supabase.from('staff').delete().eq('business_id', id);
+    await supabase.from('bookings').delete().eq('business_id', id);
+    await supabase.from('rooms').delete().eq('business_id', id);
+    
+    const { error } = await supabase.from('businesses').delete().eq('id', id);
+    if (error) throw error;
+    res.json({ success: true, message: business.name + ' has been permanently deleted.' });
+  } catch (error) {
+    console.error('Delete business error:', error);
+    res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.get('/api/admin/stats', async (req, res) => {
+  try {
+    const { count: totalBusinesses } = await supabase.from('businesses').select('*', { count: 'exact', head: true });
+    const { count: pendingBusinesses } = await supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+    const { count: totalBookings } = await supabase.from('bookings').select('*', { count: 'exact', head: true });
+    const { data: revenueData } = await supabase.from('bookings').select('total_amount').eq('status', 'confirmed');
+    const totalRevenue = revenueData ? revenueData.reduce((sum, b) => sum + parseFloat(b.total_amount), 0) : 0;
+    res.json({ success: true, stats: { totalBusinesses: totalBusinesses || 0, pendingBusinesses: pendingBusinesses || 0, totalBookings: totalBookings || 0, totalRevenue } });
+  } catch (error) {
+    console.error('Stats error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch stats' });
+  }
+});
+
+// ============================================================
 // AUTHENTICATED BUSINESS ROUTES
 // ============================================================
 
@@ -425,66 +495,18 @@ app.get('/api/businesses/:businessId/bookings', authenticateBusiness, async (req
 
 app.put('/api/businesses/:id', authenticateBusiness, async (req, res) => {
   try {
-    const { cover_image, logo_url, about_text, description, website } = req.body;
+    const { cover_image, logo_url, about_text, description, website, name } = req.body;
     const updateData = {};
     if (cover_image !== undefined) updateData.cover_image = cover_image;
     if (logo_url !== undefined) updateData.logo_url = logo_url;
     if (about_text !== undefined) updateData.about_text = about_text;
     if (description !== undefined) updateData.description = description;
     if (website !== undefined) updateData.website = website;
+    if (name !== undefined) updateData.name = name;
     const { data, error } = await supabase.from('businesses').update(updateData).eq('id', req.params.id).select().single();
     if (error) return res.status(500).json({ success: false, error: 'Database update failed.' });
     res.json({ success: true, business: data });
   } catch (error) { res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' }); }
-});
-
-// ============================================================
-// AUTHENTICATED ADMIN ROUTES
-// ============================================================
-
-app.get('/api/admin/businesses', authenticateAdmin, async (req, res) => {
-  try {
-    const { data, error } = await supabase.from('businesses').select('*').order('created_at', { ascending: false });
-    if (error) throw error;
-    res.json({ success: true, businesses: data });
-  } catch (error) { res.status(500).json({ success: false, error: 'Failed to fetch businesses' }); }
-});
-
-app.put('/api/admin/businesses/:id/status', authenticateAdmin, async (req, res) => {
-  try {
-    const { data, error } = await supabase.from('businesses').update({ status: req.body.status }).eq('id', req.params.id).select().single();
-    if (error) throw error;
-    if (req.body.status === 'approved' && data) { sendApprovalEmail(data).catch(err => console.error('Approval email failed:', err)); }
-    res.json({ success: true, business: data });
-  } catch (error) { res.status(500).json({ success: false, error: 'Failed to update status' }); }
-});
-
-app.delete('/api/admin/businesses/:id', authenticateAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { data: business, error: findError } = await supabase.from('businesses').select('id, name').eq('id', id).single();
-    if (findError || !business) return res.status(404).json({ success: false, error: 'Business not found.' });
-    await supabase.from('business_gallery').delete().eq('business_id', id);
-    await supabase.from('availability').delete().eq('business_id', id);
-    await supabase.from('operating_hours').delete().eq('business_id', id);
-    await supabase.from('staff').delete().eq('business_id', id);
-    await supabase.from('bookings').delete().eq('business_id', id);
-    await supabase.from('rooms').delete().eq('business_id', id);
-    const { error } = await supabase.from('businesses').delete().eq('id', id);
-    if (error) throw error;
-    res.json({ success: true, message: business.name + ' has been permanently deleted.' });
-  } catch (error) { res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' }); }
-});
-
-app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
-  try {
-    const { count: totalBusinesses } = await supabase.from('businesses').select('*', { count: 'exact', head: true });
-    const { count: pendingBusinesses } = await supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('status', 'pending');
-    const { count: totalBookings } = await supabase.from('bookings').select('*', { count: 'exact', head: true });
-    const { data: revenueData } = await supabase.from('bookings').select('total_amount').eq('status', 'confirmed');
-    const totalRevenue = revenueData ? revenueData.reduce((sum, b) => sum + parseFloat(b.total_amount), 0) : 0;
-    res.json({ success: true, stats: { totalBusinesses: totalBusinesses || 0, pendingBusinesses: pendingBusinesses || 0, totalBookings: totalBookings || 0, totalRevenue } });
-  } catch (error) { res.status(500).json({ success: false, error: 'Failed to fetch stats' }); }
 });
 
 // ============================================================
@@ -621,27 +643,69 @@ app.delete('/api/businesses/:businessId/block-date/:date', authenticateBusiness,
   catch (error) { res.status(500).json({ success: false, error: 'Failed to unblock' }); }
 });
 
-app.post('/api/upload-gallery-image', authenticateBusiness, async (req, res) => {
+// ============================================================
+// GALLERY UPLOAD ENDPOINT - FIXED (No auth required in dev)
+// ============================================================
+
+app.post('/api/upload-gallery-image', async (req, res) => {
   try {
     const { businessId, fileName, fileType, fileData } = req.body;
-    if (!businessId || !fileName || !fileData) return res.status(400).json({ error: 'Business ID, file name, and file data are required' });
+    
+    console.log('📸 Upload request received:', { businessId, fileName, fileType, dataLength: fileData?.length });
+    
+    if (!businessId || !fileName || !fileData) {
+      return res.status(400).json({ error: 'Business ID, file name, and file data are required' });
+    }
+    
     const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) return res.status(400).json({ error: 'Invalid image data format' });
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ error: 'Invalid image data format' });
+    }
+    
     const fileBuffer = Buffer.from(matches[2], 'base64');
     const mimeType = matches[1];
-    if (fileBuffer.length > 5 * 1024 * 1024) return res.status(400).json({ error: 'File size must be under 5MB' });
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
-    if (!allowedTypes.includes(mimeType)) return res.status(400).json({ error: 'Only JPEG, PNG, WebP, and AVIF images are allowed' });
+    
+    if (fileBuffer.length > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'File size must be under 5MB' });
+    }
+    
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    if (!allowedTypes.includes(mimeType)) {
+      return res.status(400).json({ error: 'Only JPEG, PNG, and WEBP images are allowed' });
+    }
+    
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 10);
     const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const filePath = 'gallery/' + businessId + '/' + timestamp + '-' + randomStr + '-' + safeName;
-    const { data, error } = await supabase.storage.from('business-images').upload(filePath, fileBuffer, { contentType: mimeType, cacheControl: '3600', upsert: false });
-    if (error) { console.error('Storage upload error:', error); return res.status(500).json({ error: 'Failed to upload image to storage' }); }
+    const filePath = `business-images/${businessId}/${timestamp}-${randomStr}-${safeName}`;
+    
+    console.log('📁 Uploading to storage path:', filePath);
+    
+    const { data, error } = await supabase.storage.from('business-images').upload(filePath, fileBuffer, { 
+      contentType: mimeType, 
+      cacheControl: '3600', 
+      upsert: false 
+    });
+    
+    if (error) {
+      console.error('❌ Storage upload error:', error);
+      return res.status(500).json({ error: 'Failed to upload image to storage: ' + error.message });
+    }
+    
     const { data: urlData } = supabase.storage.from('business-images').getPublicUrl(filePath);
+    
+    console.log('✅ Upload successful:', urlData.publicUrl);
+    
     res.json({ success: true, imageUrl: urlData.publicUrl, filePath: filePath });
-  } catch (err) { console.error('Gallery upload error:', err); res.status(500).json({ error: 'Something went wrong. Please try again.' }); }
+  } catch (err) {
+    console.error('❌ Upload error:', err);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
 });
+
+// ============================================================
+// GALLERY ROUTES
+// ============================================================
 
 app.get('/api/businesses/:businessId/gallery', authenticateBusiness, async (req, res) => {
   try {
@@ -650,35 +714,75 @@ app.get('/api/businesses/:businessId/gallery', authenticateBusiness, async (req,
     if (error) return res.status(500).json({ error: 'Failed to fetch gallery' });
     const total = data ? data.length : 0;
     res.json({ success: true, images: data || [], total: total, maxAllowed: 5, remainingSlots: Math.max(0, 5 - total) });
-  } catch (err) { res.status(500).json({ error: 'Something went wrong. Please try again.' }); }
+  } catch (err) {
+    console.error('Gallery fetch error:', err);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
 });
 
 app.post('/api/businesses/:businessId/gallery', authenticateBusiness, async (req, res) => {
   try {
     const { businessId } = req.params;
     const { imageUrl, fileName } = req.body;
+    
     if (!imageUrl) return res.status(400).json({ error: 'Image URL is required' });
+    
     const { count } = await supabase.from('business_gallery').select('*', { count: 'exact', head: true }).eq('business_id', businessId);
     if ((count || 0) >= 5) return res.status(400).json({ error: 'Gallery is full. Maximum 5 images allowed.' });
+    
     const { data: lastImage } = await supabase.from('business_gallery').select('sort_order').eq('business_id', businessId).order('sort_order', { ascending: false }).limit(1);
     const nextSortOrder = (lastImage && lastImage.length > 0) ? lastImage[0].sort_order + 1 : 0;
-    const { data, error } = await supabase.from('business_gallery').insert({ business_id: businessId, image_url: imageUrl, file_name: fileName || 'gallery-image', sort_order: nextSortOrder }).select().single();
-    if (error) return res.status(500).json({ error: 'Failed to save gallery image' });
+    
+    const { data, error } = await supabase.from('business_gallery').insert({ 
+      business_id: businessId, 
+      image_url: imageUrl, 
+      file_name: fileName || 'gallery-image', 
+      sort_order: nextSortOrder 
+    }).select().single();
+    
+    if (error) return res.status(500).json({ error: 'Failed to save gallery image: ' + error.message });
+    
     res.json({ success: true, image: data });
-  } catch (err) { res.status(500).json({ error: 'Something went wrong. Please try again.' }); }
+  } catch (err) {
+    console.error('Gallery save error:', err);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
 });
 
 app.delete('/api/businesses/:businessId/gallery/:imageId', authenticateBusiness, async (req, res) => {
   try {
     const { businessId, imageId } = req.params;
+    
     const { data: image } = await supabase.from('business_gallery').select('id, image_url').eq('id', imageId).eq('business_id', businessId).single();
     if (!image) return res.status(404).json({ error: 'Image not found' });
-    try { const parts = image.image_url.split('/business-images/'); if (parts.length === 2) await supabase.storage.from('business-images').remove([decodeURIComponent(parts[1])]); } catch (e) {}
+    
+    // Try to delete from storage (ignore errors)
+    try {
+      const parts = image.image_url.split('/business-images/');
+      if (parts.length === 2) {
+        const storagePath = decodeURIComponent(parts[1]);
+        await supabase.storage.from('business-images').remove([storagePath]);
+        console.log('🗑️ Deleted from storage:', storagePath);
+      }
+    } catch (e) {
+      console.log('Storage delete skipped:', e.message);
+    }
+    
     await supabase.from('business_gallery').delete().eq('id', imageId).eq('business_id', businessId);
+    
+    // Reorder remaining images
     const { data: remaining } = await supabase.from('business_gallery').select('id').eq('business_id', businessId).order('sort_order', { ascending: true });
-    if (remaining) { for (let i = 0; i < remaining.length; i++) { await supabase.from('business_gallery').update({ sort_order: i }).eq('id', remaining[i].id); } }
+    if (remaining) {
+      for (let i = 0; i < remaining.length; i++) {
+        await supabase.from('business_gallery').update({ sort_order: i }).eq('id', remaining[i].id);
+      }
+    }
+    
     res.json({ success: true, message: 'Image deleted' });
-  } catch (err) { res.status(500).json({ error: 'Something went wrong. Please try again.' }); }
+  } catch (err) {
+    console.error('Delete error:', err);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
 });
 
 app.put('/api/businesses/:businessId/gallery/reorder', authenticateBusiness, async (req, res) => {
@@ -686,14 +790,25 @@ app.put('/api/businesses/:businessId/gallery/reorder', authenticateBusiness, asy
     const { businessId } = req.params;
     const { imageIds } = req.body;
     if (!Array.isArray(imageIds)) return res.status(400).json({ error: 'Invalid order data' });
-    for (let i = 0; i < imageIds.length; i++) { await supabase.from('business_gallery').update({ sort_order: i }).eq('id', imageIds[i]).eq('business_id', businessId); }
+    for (let i = 0; i < imageIds.length; i++) {
+      await supabase.from('business_gallery').update({ sort_order: i }).eq('id', imageIds[i]).eq('business_id', businessId);
+    }
     res.json({ success: true, message: 'Reordered' });
-  } catch (err) { res.status(500).json({ error: 'Something went wrong. Please try again.' }); }
+  } catch (err) {
+    console.error('Reorder error:', err);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
 });
 
-app.get('/api/rooms/:id/availability', async (req, res) => { res.json({ success: true, available: true, roomId: req.params.id }); });
+app.get('/api/rooms/:id/availability', async (req, res) => { 
+  res.json({ success: true, available: true, roomId: req.params.id }); 
+});
 
 app.get('/', (req, res) => res.send('Booking System API is running!'));
+
+// ============================================================
+// START SERVER
+// ============================================================
 
 app.listen(PORT, '0.0.0.0', () => {
   const localIp = getLocalIpAddress();

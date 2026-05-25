@@ -390,7 +390,7 @@ function AdminDashboard({ admin, onLogout }) {
               onClick: function() { setActiveTab(tab.id); },
               style: {
                 display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px',
-                borderRadius: '40px', border: 'none', fontSize: '13px', fontWeight: '500',
+                borderRadius: '40px', fontSize: '13px', fontWeight: '500',
                 cursor: 'pointer', transition: 'all 0.2s',
                 backgroundColor: isActive ? '#4f46e5' : 'white',
                 color: isActive ? 'white' : '#475569',
@@ -612,6 +612,7 @@ function AdminDashboard({ admin, onLogout }) {
         )
       )
     )
+  );
 }
 
 export default AdminDashboard;
