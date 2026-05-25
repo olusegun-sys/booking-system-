@@ -19,14 +19,22 @@ function RoomPage({ business, onBack }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
+  const token = localStorage.getItem('auth_token');
+
   useEffect(() => {
-    fetchRooms();
-  }, [business.id]);
+    if (business && business.id) {
+      fetchRooms();
+    }
+  }, [business]);
 
   const fetchRooms = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/api/businesses/${business.id}/rooms`);
+      const response = await fetch(`${API_BASE}/api/businesses/${business.id}/rooms`, {
+        headers: {
+          'Authorization': 'Bearer ' + token
+        }
+      });
       const data = await response.json();
       if (data.success) {
         setRooms(data.rooms || []);
@@ -120,7 +128,10 @@ function RoomPage({ business, onBack }) {
       
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
         body: JSON.stringify({
           name: formData.name.trim(),
           type: formData.type,
@@ -140,6 +151,7 @@ function RoomPage({ business, onBack }) {
         showMessage('error', data.error || 'Failed to save room');
       }
     } catch (err) {
+      console.error('Save room error:', err);
       showMessage('error', 'Something went wrong. Please try again.');
     } finally {
       setSaving(false);
@@ -151,7 +163,10 @@ function RoomPage({ business, onBack }) {
     
     try {
       const response = await fetch(`${API_BASE}/api/businesses/${business.id}/rooms/${room.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Authorization': 'Bearer ' + token
+        }
       });
       const data = await response.json();
       if (data.success) {
@@ -161,6 +176,7 @@ function RoomPage({ business, onBack }) {
         showMessage('error', data.error || 'Failed to delete room');
       }
     } catch (err) {
+      console.error('Delete room error:', err);
       showMessage('error', 'Something went wrong. Please try again.');
     }
   };
@@ -168,6 +184,14 @@ function RoomPage({ business, onBack }) {
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(price);
   };
+
+  // Safety check - if no business, show error
+  if (!business || !business.id) {
+    return React.createElement('div', { style: { padding: '40px', textAlign: 'center' } },
+      React.createElement('p', { style: { color: '#ef4444' } }, 'Error: Business data not available. Please go back and try again.'),
+      React.createElement('button', { onClick: onBack, style: { marginTop: '16px', padding: '8px 16px', cursor: 'pointer' } }, 'Go Back')
+    );
+  }
 
   const styles = {
     container: {
@@ -607,7 +631,9 @@ function RoomPage({ business, onBack }) {
               value: formData.price_per_night,
               onChange: (e) => setFormData({ ...formData, price_per_night: e.target.value }),
               placeholder: 'e.g., 25000',
-              style: styles.input
+              style: styles.input,
+              min: "0",
+              step: "1000"
             })
           ),
           React.createElement('div', { style: styles.formGroup },

@@ -1,35 +1,52 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, CreditCard, XCircle } from 'lucide-react';
+import { CheckCircle, CreditCard, XCircle, Building2 } from 'lucide-react';
 
 function PaystackPayment({ bookingReference, amount, email, onSuccess, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [paymentStatus, setPaymentStatus] = useState('idle');
   const [paystackLoaded, setPaystackLoaded] = useState(false);
+  const [showPaystack, setShowPaystack] = useState(false);
 
   // Dynamic API base - works on desktop and mobile
   var API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5000'
     : 'http://' + window.location.hostname + ':5000';
 
-  // Load Paystack script dynamically
+  // Load Paystack script dynamically when showPaystack becomes true
   useEffect(() => {
-    if (document.querySelector('script[src*="paystack"]')) {
-      setPaystackLoaded(true);
-      return;
+    if (showPaystack) {
+      // Check if already loaded
+      if (window.PaystackPop) {
+        setPaystackLoaded(true);
+        return;
+      }
+      
+      // Check if script already exists
+      let existingScript = document.querySelector('script[src*="paystack"]');
+      if (existingScript) {
+        if (window.PaystackPop) {
+          setPaystackLoaded(true);
+        } else {
+          existingScript.onload = () => setPaystackLoaded(true);
+        }
+        return;
+      }
+      
+      // Load new script
+      const script = document.createElement('script');
+      script.src = 'https://js.paystack.co/v1/inline.js';
+      script.async = true;
+      script.onload = () => {
+        setTimeout(() => setPaystackLoaded(true), 100);
+      };
+      script.onerror = () => {
+        setError('Failed to load payment gateway. Please use "Pay at Venue".');
+        setShowPaystack(false);
+      };
+      document.body.appendChild(script);
     }
-    
-    const script = document.createElement('script');
-    script.src = 'https://js.paystack.co/v1/inline.js';
-    script.async = true;
-    script.onload = () => setPaystackLoaded(true);
-    script.onerror = () => setError('Failed to load payment gateway. Please refresh and try again.');
-    document.body.appendChild(script);
-    
-    return () => {
-      // Don't remove the script, just clean up
-    };
-  }, []);
+  }, [showPaystack]);
 
   const formatPrice = (priceInKobo) => {
     const priceInNaira = priceInKobo / 100;
@@ -40,9 +57,13 @@ function PaystackPayment({ bookingReference, amount, email, onSuccess, onClose }
     }).format(priceInNaira);
   };
 
+  const handlePayAtVenue = () => {
+    if (onClose) onClose();
+  };
+
   const handlePayNow = async () => {
-    if (!paystackLoaded) {
-      setError('Payment gateway is still loading. Please wait.');
+    if (!window.PaystackPop) {
+      setError('Payment gateway not ready. Please use "Pay at Venue".');
       return;
     }
     
@@ -50,8 +71,6 @@ function PaystackPayment({ bookingReference, amount, email, onSuccess, onClose }
     setError('');
 
     try {
-      console.log('Creating payment for:', { bookingReference, email, amount });
-
       const initResponse = await fetch(API_BASE + '/api/create-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -66,9 +85,9 @@ function PaystackPayment({ bookingReference, amount, email, onSuccess, onClose }
 
       if (!initData.success) {
         if (initData.error && (initData.error.includes('Duplicate') || initData.error.includes('already'))) {
-          setError('A payment for this booking has already been initiated. The booking is confirmed. Please check your email or try "Pay at Venue".');
+          setError('A payment for this booking has already been initiated. Please use "Pay at Venue".');
         } else {
-          setError(initData.error || 'Could not start payment. Please try again.');
+          setError(initData.error || 'Could not start payment. Please use "Pay at Venue".');
         }
         setLoading(false);
         return;
@@ -76,7 +95,7 @@ function PaystackPayment({ bookingReference, amount, email, onSuccess, onClose }
 
       const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
       if (!paystackKey) {
-        setError('Payment configuration error. Please contact support.');
+        setError('Payment configuration error. Please use "Pay at Venue".');
         setLoading(false);
         return;
       }
@@ -98,7 +117,6 @@ function PaystackPayment({ bookingReference, amount, email, onSuccess, onClose }
         },
         onClose: function () {
           setLoading(false);
-          setError('Payment window closed. You can try again or pay at the venue.');
         },
         callback: function (response) {
           verifyPaymentOnBackend(response.reference);
@@ -108,7 +126,7 @@ function PaystackPayment({ bookingReference, amount, email, onSuccess, onClose }
       handler.openIframe();
     } catch (err) {
       console.error('Paystack error:', err);
-      setError('Something went wrong. Please try again.');
+      setError('Something went wrong. Please use "Pay at Venue".');
       setLoading(false);
     }
   };
@@ -144,10 +162,7 @@ function PaystackPayment({ bookingReference, amount, email, onSuccess, onClose }
     if (onSuccess) onSuccess();
   };
 
-  const handlePayAtVenue = () => {
-    if (onClose) onClose();
-  };
-
+  // Success state
   if (paymentStatus === 'success') {
     return (
       <div style={{
@@ -170,7 +185,16 @@ function PaystackPayment({ bookingReference, amount, email, onSuccess, onClose }
         <button
           className="btn btn-primary"
           onClick={handleContinue}
-          style={{ padding: '12px 32px', fontSize: '15px', fontWeight: '600' }}
+          style={{ 
+            padding: '12px 32px', 
+            fontSize: '15px', 
+            fontWeight: '600',
+            background: '#4f46e5',
+            color: 'white',
+            border: 'none',
+            borderRadius: '40px',
+            cursor: 'pointer'
+          }}
         >
           Continue
         </button>
@@ -178,6 +202,7 @@ function PaystackPayment({ bookingReference, amount, email, onSuccess, onClose }
     );
   }
 
+  // Failed state
   if (paymentStatus === 'failed') {
     return (
       <div style={{
@@ -194,77 +219,200 @@ function PaystackPayment({ bookingReference, amount, email, onSuccess, onClose }
         <p style={{ color: '#7f1d1d', fontSize: '14px', marginBottom: '16px' }}>
           {error || 'Your payment could not be processed.'}
         </p>
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-          <button
-            className="btn btn-primary"
-            onClick={handlePayNow}
-            style={{ padding: '10px 20px', fontSize: '14px' }}
-          >
-            Try Again
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={handlePayAtVenue}
-            style={{ padding: '10px 20px', fontSize: '14px' }}
-          >
-            Pay at Venue
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            setPaymentStatus('idle');
+            setShowPaystack(false);
+            setError('');
+          }}
+          style={{ 
+            padding: '12px 24px', 
+            fontSize: '14px',
+            background: '#4f46e5',
+            color: 'white',
+            border: 'none',
+            borderRadius: '40px',
+            cursor: 'pointer'
+          }}
+        >
+          Try Pay at Venue
+        </button>
       </div>
     );
   }
 
-  return (
-    <div style={{ textAlign: 'center', marginTop: '20px' }}>
-      {error && (
-        <div className="alert alert-error" style={{ marginBottom: '16px' }}>
-          {error}
-        </div>
-      )}
+  // Default view - Pay at Venue as primary
+  if (!showPaystack) {
+    return (
+      <div style={{ textAlign: 'center' }}>
+        {error && (
+          <div style={{ 
+            marginBottom: '16px', 
+            padding: '12px', 
+            background: '#fef2f2', 
+            color: '#991b1b', 
+            borderRadius: '12px', 
+            fontSize: '14px' 
+          }}>
+            {error}
+          </div>
+        )}
 
-      {!paystackLoaded && (
-        <div style={{ textAlign: 'center', padding: '20px' }}>
-          <div className="loading-spinner"></div>
-          <p style={{ marginTop: '12px', fontSize: '14px', color: '#64748b' }}>Loading payment gateway...</p>
-        </div>
-      )}
-
-      {paystackLoaded && (
-        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexDirection: 'column', alignItems: 'center' }}>
-          <button className="btn btn-success" onClick={handlePayNow} disabled={loading} style={{ padding: '16px 32px', fontSize: '16px', width: '100%', maxWidth: '360px' }}>
-            <CreditCard size={18} strokeWidth={2} />
-            {loading ? 'Processing...' : `Pay ${formatPrice(amount)} Now`}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <button 
+            onClick={handlePayAtVenue} 
+            style={{ 
+              padding: '18px 32px', 
+              fontSize: '16px', 
+              width: '100%',
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              border: 'none',
+              borderRadius: '40px',
+              color: 'white',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.01)';
+              e.currentTarget.style.boxShadow = '0 8px 20px rgba(16,185,129,0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            <Building2 size={20} />
+            Pay at Venue
           </button>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', maxWidth: '360px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
-            <span style={{ fontSize: '13px', color: '#94a3b8', fontWeight: '500', whiteSpace: 'nowrap' }}>or</span>
+            <span style={{ fontSize: '13px', color: '#94a3b8' }}>or pay online</span>
             <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
           </div>
           
           <button 
-            className="btn btn-secondary" 
-            onClick={handlePayAtVenue} 
+            onClick={() => setShowPaystack(true)}
             style={{ 
               padding: '14px 32px', 
               fontSize: '15px', 
-              width: '100%', 
-              maxWidth: '360px',
+              width: '100%',
               background: 'white',
               border: '1.5px solid #e2e8f0',
-              color: '#64748b',
-              fontWeight: '500'
+              borderRadius: '40px',
+              color: '#475569',
+              fontWeight: '500',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f8fafc';
+              e.currentTarget.style.borderColor = '#cbd5e1';
+              e.currentTarget.style.transform = 'scale(1.01)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'white';
+              e.currentTarget.style.borderColor = '#e2e8f0';
+              e.currentTarget.style.transform = 'scale(1)';
             }}
           >
-            Pay at Venue
+            <CreditCard size={18} />
+            Pay with Card
           </button>
-          <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
+          
+          <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '8px' }}>
             No payment required now — pay when you arrive
           </p>
         </div>
+
+        <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '16px' }}>
+          Secured by Paystack — Test mode — no real charges
+        </p>
+      </div>
+    );
+  }
+
+  // Paystack View - Secondary Option
+  return (
+    <div>
+      <button 
+        onClick={() => {
+          setShowPaystack(false);
+          setError('');
+        }}
+        style={{ 
+          background: 'none', 
+          border: 'none', 
+          color: '#4f46e5', 
+          cursor: 'pointer', 
+          fontSize: '13px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+      >
+        ← Back to Pay at Venue
+      </button>
+      
+      {!paystackLoaded ? (
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          <div className="loading-spinner"></div>
+          <p style={{ marginTop: '12px', fontSize: '14px', color: '#64748b' }}>Loading payment gateway...</p>
+        </div>
+      ) : (
+        <button 
+          onClick={handlePayNow} 
+          disabled={loading} 
+          style={{ 
+            padding: '16px 32px', 
+            fontSize: '16px', 
+            width: '100%',
+            background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+            border: 'none',
+            borderRadius: '40px',
+            color: 'white',
+            fontWeight: '600',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.7 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            if (!loading) {
+              e.currentTarget.style.transform = 'scale(1.01)';
+              e.currentTarget.style.boxShadow = '0 8px 20px rgba(37,99,235,0.3)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        >
+          <CreditCard size={18} />
+          {loading ? 'Processing...' : `Pay ${formatPrice(amount)} Now`}
+        </button>
+      )}
+      
+      {error && (
+        <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '12px' }}>{error}</p>
       )}
 
-      <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '12px' }}>
+      <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '16px' }}>
         Secured by Paystack — Test mode — no real charges
       </p>
     </div>
