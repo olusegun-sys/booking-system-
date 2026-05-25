@@ -1,5 +1,6 @@
-?import React from 'react';
+import React from 'react';
 import { Building2, X, LogIn, Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
+
 const API_BASE = 'https://booking-hub-api.onrender.com';
 
 var BusinessLogin = function (props) {
@@ -264,7 +265,7 @@ var BusinessLogin = function (props) {
             href: '/signup', 
             onClick: function(e) { e.preventDefault(); window.location.href = '/signup'; },
             style: { color: '#4f46e5', textDecoration: 'none', fontWeight: '500', cursor: 'pointer' } 
-          }, 'Sign up free ?')
+          }, 'Sign up free →')
         )
       )
     )

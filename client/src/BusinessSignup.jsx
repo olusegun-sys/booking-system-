@@ -5,6 +5,7 @@ import {
   Loader, CheckCircle, Hotel, Dumbbell, CalendarDays,
   Building2, Sparkles
 } from 'lucide-react';
+
 const API_BASE = 'https://booking-hub-api.onrender.com';
 
 var nigerianStates = [

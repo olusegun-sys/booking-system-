@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Building2, X, LogIn, Eye, EyeOff, Mail, Lock, ArrowRight, Shield } from 'lucide-react';
+
 const API_BASE = 'https://booking-hub-api.onrender.com';
 
 function AdminLogin({ onLogin }) {
@@ -33,7 +34,6 @@ function AdminLogin({ onLogin }) {
       const data = await response.json();
       
       if (data.success) {
-        // Store auth token if present (for authenticated API calls)
         if (data.token) {
           localStorage.setItem('auth_token', data.token);
         }
