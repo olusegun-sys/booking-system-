@@ -9,7 +9,8 @@ import UnifiedBookingPage from './UnifiedBookingPage';
 import AdminDashboard from './AdminDashboard';
 import HostLanding from './HostLanding';
 import BusinessSignup from './BusinessSignup';
-import API_BASE from './config';
+// FIX: Removed config.js import - using environment variable directly
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
 
 var _useState = React.useState;
 var _useEffect = React.useEffect;
