@@ -10,5 +10,12 @@ export default defineConfig({
     strictPort: true,
     allowedHosts: ['all'],
     cors: true
+  },
+  build: {
+    rollupOptions: {
+      input: {
+        main: 'index.html'
+      }
+    }
   }
 });
