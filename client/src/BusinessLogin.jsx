@@ -1,7 +1,6 @@
 import React from 'react';
 import { Building2, X, LogIn, Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
-
-const API_BASE = 'https://booking-hub-api.onrender.com';
+import API_BASE from './config';
 
 var BusinessLogin = function (props) {
   var _useState = React.useState('owner');
