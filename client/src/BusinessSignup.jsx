@@ -5,8 +5,7 @@ import {
   Loader, CheckCircle, Hotel, Dumbbell, CalendarDays,
   Building2, Sparkles
 } from 'lucide-react';
-
-const API_BASE = 'https://booking-hub-api.onrender.com';
+import API_BASE from './config';
 
 var nigerianStates = [
   'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
@@ -107,7 +106,7 @@ function BusinessSignup() {
       body: JSON.stringify(formData)
     }).then(function (r) { return r.json(); }).then(function (data) {
       if (data.success) {
-        setSuccessMsg('Account created! Redirecting to login...');
+        setSuccessMsg('Account created! Redirecting to your dashboard...');
         if (data.business) {
           localStorage.setItem('businessEmail', formData.email);
           localStorage.setItem('pendingBusiness', JSON.stringify(data.business));

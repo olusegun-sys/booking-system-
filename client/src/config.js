@@ -1,4 +1,6 @@
 ﻿// config.js - Single source of truth for API endpoint
+// This file MUST be imported in App.jsx to be included in build
+
 const isLocal = window.location.hostname === 'localhost' || 
                 window.location.hostname === '127.0.0.1' ||
                 window.location.hostname.includes('192.168');

@@ -9,8 +9,7 @@ import UnifiedBookingPage from './UnifiedBookingPage';
 import AdminDashboard from './AdminDashboard';
 import HostLanding from './HostLanding';
 import BusinessSignup from './BusinessSignup';
-// FIX: Removed config.js import - using environment variable directly
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
+import API_BASE from './config';
 
 var _useState = React.useState;
 var _useEffect = React.useEffect;
@@ -248,6 +247,7 @@ function DashboardPage() {
   function handleLogout() {
     try {
       localStorage.removeItem('currentBusiness');
+      localStorage.removeItem('auth_token');
     } catch (err) {
       console.error('Error removing business from localStorage:', err);
     }
@@ -271,7 +271,6 @@ function DashboardPage() {
 }
 
 function App() {
-  // NO WRAPPER DIV - let components control their own text colors
   return React.createElement(Router, null,
     React.createElement(Toaster, null),
     React.createElement(Routes, null,

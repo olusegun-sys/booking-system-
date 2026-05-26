@@ -322,7 +322,6 @@ function BusinessDashboard() {
       case 'overview':
         return renderOverview();
       case 'rooms':
-        // Use RoomPage instead of AddRoomForm - it has full CRUD functionality
         return React.createElement(RoomPage, { 
           business: business,
           onBack: () => setActiveTab('overview')
@@ -353,6 +352,12 @@ function BusinessDashboard() {
       default:
         return renderOverview();
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('currentBusiness');
+    window.location.href = '/login';
   };
 
   return React.createElement('div', { style: { display: 'flex', minHeight: '100vh', background: '#f8fafc', position: 'relative' } },
@@ -402,11 +407,7 @@ function BusinessDashboard() {
           )
         ),
         React.createElement('button', {
-          onClick: () => {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('currentBusiness');
-            window.location.href = '/business-login';
-          },
+          onClick: handleLogout,
           style: {
             width: '100%',
             display: 'flex',
@@ -476,11 +477,7 @@ function BusinessDashboard() {
           )
         ),
         React.createElement('button', {
-          onClick: () => {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('currentBusiness');
-            window.location.href = '/business-login';
-          },
+          onClick: handleLogout,
           style: {
             width: '100%',
             display: 'flex',
