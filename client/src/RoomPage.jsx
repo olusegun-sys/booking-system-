@@ -1,6 +1,15 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { Hotel, Plus, Edit2, Trash2, X, Check, Bed, Users, DollarSign, Home, ArrowLeft } from 'lucide-react';
-import API_BASE from './config';
+// Direct API detection - no external file needed
+const getAPI_BASE = () => {
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('192.168')) {
+    return 'http://localhost:5000';
+  }
+  return 'https://booking-hub-api.onrender.com';
+};
+const API_BASE = getAPI_BASE();
+
 
 function RoomPage({ business, onBack }) {
   const [rooms, setRooms] = useState([]);

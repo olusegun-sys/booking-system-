@@ -2,7 +2,16 @@
 import { Building2, MapPin, Phone, Mail, Globe, Save, Camera, X, CheckCircle, AlertCircle, Edit3, ExternalLink, ArrowLeft, Layers, Image, Sparkles } from 'lucide-react';
 import ImageUpload from './components/forms/ImageUpload';
 import BusinessGallery from './components/forms/BusinessGallery';
-import API_BASE from './config';
+// Direct API detection - no external file needed
+const getAPI_BASE = () => {
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('192.168')) {
+    return 'http://localhost:5000';
+  }
+  return 'https://booking-hub-api.onrender.com';
+};
+const API_BASE = getAPI_BASE();
+
 
 function BusinessProfile({ business, onBack, onUpdate }) {
   const [isEditing, setIsEditing] = useState(false);

@@ -1,7 +1,16 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { showError, showSuccess } from './toast';
-import API_BASE from './config';
+// Direct API detection - no external file needed
+const getAPI_BASE = () => {
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('192.168')) {
+    return 'http://localhost:5000';
+  }
+  return 'https://booking-hub-api.onrender.com';
+};
+const API_BASE = getAPI_BASE();
+
 
 function AddRoomForm({ businessId, businessType, onBack, onRoomAdded }) {
   console.log('AddRoomForm rendering with props:', { businessId, businessType });
@@ -19,10 +28,10 @@ function AddRoomForm({ businessId, businessType, onBack, onRoomAdded }) {
   const token = localStorage.getItem('auth_token');
   
   const labels = {
-    hotel: { item: 'Room', priceLabel: 'Price Per Night (₦)', placeholder: 'e.g., 25000' },
-    sports: { item: 'Court', priceLabel: 'Price Per Hour (₦)', placeholder: 'e.g., 5000' },
-    event: { item: 'Space', priceLabel: 'Price Per Event (₦)', placeholder: 'e.g., 150000' }
-  }[businessType] || { item: 'Room', priceLabel: 'Price Per Night (₦)', placeholder: 'e.g., 25000' };
+    hotel: { item: 'Room', priceLabel: 'Price Per Night (â‚¦)', placeholder: 'e.g., 25000' },
+    sports: { item: 'Court', priceLabel: 'Price Per Hour (â‚¦)', placeholder: 'e.g., 5000' },
+    event: { item: 'Space', priceLabel: 'Price Per Event (â‚¦)', placeholder: 'e.g., 150000' }
+  }[businessType] || { item: 'Room', priceLabel: 'Price Per Night (â‚¦)', placeholder: 'e.g., 25000' };
 
   const roomTypes = businessType === 'sports' 
     ? ['Hard Court', 'Clay Court', 'Grass Court', 'Football Pitch', 'Basketball Court']
