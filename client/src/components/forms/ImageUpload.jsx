@@ -1,6 +1,15 @@
 ﻿import React from 'react';
 import { Upload, X, Image, Loader2 } from 'lucide-react';
 
+// Direct API detection - single source of truth
+const getAPI_BASE = () => {
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('192.168')) {
+    return 'http://localhost:5000';
+  }
+  return 'https://booking-hub-api.onrender.com';
+};
+
 var uniqueIdCounter = 0;
 
 function ImageUpload(props) {
@@ -61,13 +70,10 @@ function ImageUpload(props) {
     reader.onloadend = function() {
       var base64String = reader.result;
       
-      var API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:5000'
-        : 'http://' + window.location.hostname + ':5000';
-      
+      var API_BASE = getAPI_BASE();
       var token = localStorage.getItem('auth_token');
       
-      console.log('Uploading:', { type, businessId, fileName: file.name });
+      console.log('Uploading:', { type, businessId, fileName: file.name, API_BASE: API_BASE });
       
       // Step 1: Upload to Supabase storage
       fetch(API_BASE + '/api/upload-gallery-image', {
