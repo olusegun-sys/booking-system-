@@ -1,5 +1,5 @@
-// Use environment variable directly - no config.js import
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
+// Import the hardcoded API_BASE from config
+import API_BASE from '../config';
 
 // Token management
 let authToken = localStorage.getItem('auth_token');
