@@ -20,10 +20,10 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ============================================================
-// CORS CONFIGURATION
+// CORS CONFIGURATION - UPDATED FOR PRODUCTION
 // ============================================================
 const ALLOWED_ORIGINS = process.env.NODE_ENV === 'production'
-  ? (process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
+  ? (process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['https://booking-frontend-5e1e.onrender.com'])
   : ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.1.122:5173'];
 
 app.use(cors({
@@ -380,7 +380,7 @@ app.post('/api/admin/login', async (req, res) => {
 });
 
 // ============================================================
-// ADMIN ROUTES (Auth disabled for development)
+// ADMIN ROUTES
 // ============================================================
 
 app.get('/api/admin/businesses', async (req, res) => {
@@ -445,6 +445,36 @@ app.get('/api/admin/stats', async (req, res) => {
 // ============================================================
 // AUTHENTICATED BUSINESS ROUTES
 // ============================================================
+
+// ============================================================
+// GET BUSINESS PROFILE - FIXED (ADD THIS MISSING ENDPOINT)
+// ============================================================
+
+app.get('/api/businesses/profile', authenticateBusiness, async (req, res) => {
+  try {
+    // Get business ID from the authenticated session
+    const businessId = req.businessId;
+    
+    if (!businessId) {
+      return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+    
+    const { data, error } = await supabase
+      .from('businesses')
+      .select('id, name, email, phone, city, state, logo_url, cover_image, business_type, slug, description, about_text, website, status, booking_limit, current_booking_count')
+      .eq('id', businessId)
+      .single();
+    
+    if (error || !data) {
+      return res.status(404).json({ success: false, error: 'Business not found' });
+    }
+    
+    res.json({ success: true, business: data });
+  } catch (error) {
+    console.error('Profile fetch error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch profile' });
+  }
+});
 
 app.get('/api/businesses/:businessId/rooms', authenticateBusiness, async (req, res) => {
   try {
@@ -644,7 +674,7 @@ app.delete('/api/businesses/:businessId/block-date/:date', authenticateBusiness,
 });
 
 // ============================================================
-// GALLERY UPLOAD ENDPOINT - FIXED (No auth required in dev)
+// GALLERY UPLOAD ENDPOINT
 // ============================================================
 
 app.post('/api/upload-gallery-image', async (req, res) => {
@@ -756,7 +786,6 @@ app.delete('/api/businesses/:businessId/gallery/:imageId', authenticateBusiness,
     const { data: image } = await supabase.from('business_gallery').select('id, image_url').eq('id', imageId).eq('business_id', businessId).single();
     if (!image) return res.status(404).json({ error: 'Image not found' });
     
-    // Try to delete from storage (ignore errors)
     try {
       const parts = image.image_url.split('/business-images/');
       if (parts.length === 2) {
@@ -770,7 +799,6 @@ app.delete('/api/businesses/:businessId/gallery/:imageId', authenticateBusiness,
     
     await supabase.from('business_gallery').delete().eq('id', imageId).eq('business_id', businessId);
     
-    // Reorder remaining images
     const { data: remaining } = await supabase.from('business_gallery').select('id').eq('business_id', businessId).order('sort_order', { ascending: true });
     if (remaining) {
       for (let i = 0; i < remaining.length; i++) {
