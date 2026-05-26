@@ -1,7 +1,4 @@
-// config.js - Single source of truth for API endpoint
-// For local development: uses localhost
-// For production: uses deployed backend URL
-
+﻿// config.js - Single source of truth for API endpoint
 const isLocal = window.location.hostname === 'localhost' || 
                 window.location.hostname === '127.0.0.1' ||
                 window.location.hostname.includes('192.168');
