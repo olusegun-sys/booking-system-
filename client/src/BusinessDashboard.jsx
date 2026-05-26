@@ -10,7 +10,15 @@ import BookingsManager from './BookingsManager';
 import BusinessProfile from './BusinessProfile';
 import BusinessSettings from './BusinessSettings';
 import StaffManagement from './StaffManagement';
-import API_BASE from './config';
+
+// Direct API detection - no external file needed
+const getAPI_BASE = () => {
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('192.168')) {
+    return 'http://localhost:5000';
+  }
+  return 'https://booking-hub-api.onrender.com';
+};
 
 function BusinessDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -21,6 +29,7 @@ function BusinessDashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
 
+  const API_BASE = getAPI_BASE();
   const token = localStorage.getItem('auth_token');
   const businessId = (() => {
     const currentBusiness = localStorage.getItem('currentBusiness');

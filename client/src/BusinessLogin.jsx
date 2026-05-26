@@ -1,6 +1,14 @@
 import React from 'react';
 import { Building2, X, LogIn, Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
-import API_BASE from './config';
+
+// Direct API detection - no external file needed, guaranteed to bundle
+const getAPI_BASE = () => {
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('192.168')) {
+    return 'http://localhost:5000';
+  }
+  return 'https://booking-hub-api.onrender.com';
+};
 
 var BusinessLogin = function (props) {
   var _useState = React.useState('owner');
@@ -54,6 +62,8 @@ var BusinessLogin = function (props) {
     }
     setLoading(true);
     setError('');
+
+    const API_BASE = getAPI_BASE();
 
     fetch(API_BASE + '/api/businesses/login', {
       method: 'POST',
