@@ -1609,7 +1609,7 @@ app.get("/", (req, res) => res.send("Booking System API is running!"));
 // START SERVER
 // ============================================================
 
-app.listen(8080, "0.0.0.0", () => {
+app.listen(PORT, "0.0.0.0", () => {
   const localIp = getLocalIpAddress();
   console.log("\n========================================");
   console.log("🚀 Booking Hub Server Running");
