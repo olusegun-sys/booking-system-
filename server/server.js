@@ -29,7 +29,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ============================================================
-// CORS CONFIGURATION - CLEAN VERSION
+// CORS CONFIGURATION
 // ============================================================
 const ALLOWED_ORIGINS =
   process.env.NODE_ENV === "production"
@@ -112,15 +112,17 @@ function getLocalIpAddress() {
 }
 
 // ============================================================
-// AUTHENTICATION MIDDLEWARE
+// AUTHENTICATION MIDDLEWARE - FIXED FOR PROFILE ENDPOINT
 // ============================================================
 async function authenticateBusiness(req, res, next) {
-  const businessId = req.params.businessId || req.params.id;
+  // For profile endpoint, there's no ID in params - use session ID only
+  const requestedBusinessId = req.params.businessId || req.params.id;
   const authHeader = req.headers.authorization;
 
+  // Development mode bypass
   if (process.env.NODE_ENV !== "production" && !authHeader) {
     console.log("⚠️ Development mode: skipping auth for business route");
-    req.businessId = businessId;
+    req.businessId = requestedBusinessId;
     return next();
   }
 
@@ -145,10 +147,17 @@ async function authenticateBusiness(req, res, next) {
         .json({ success: false, error: "Invalid or expired session" });
     }
 
-    if (session.business_id !== businessId) {
+    // FIXED: Only check access if a specific business ID was requested
+    // For endpoints like /api/businesses/profile (no ID), skip the ID check
+    if (requestedBusinessId && session.business_id !== requestedBusinessId) {
+      console.log({
+        session_business_id: session.business_id,
+        requested_business_id: requestedBusinessId,
+      });
       return res.status(403).json({ success: false, error: "Access denied" });
     }
 
+    // Always set businessId from session for authenticated requests
     req.businessId = session.business_id;
     next();
   } catch (err) {
@@ -683,12 +692,17 @@ app.get("/api/admin/stats", async (req, res) => {
 // AUTHENTICATED BUSINESS ROUTES
 // ============================================================
 
-// GET BUSINESS PROFILE
+// ============================================================
+// GET BUSINESS PROFILE - FIXED (USES SESSION BUSINESS ID)
+// ============================================================
+
 app.get("/api/businesses/profile", authenticateBusiness, async (req, res) => {
+  console.log("📞 Profile request - Business ID from session:", req.businessId);
   try {
     const businessId = req.businessId;
 
     if (!businessId) {
+      console.log("❌ No business ID in request");
       return res
         .status(401)
         .json({ success: false, error: "Not authenticated" });
@@ -702,15 +716,24 @@ app.get("/api/businesses/profile", authenticateBusiness, async (req, res) => {
       .eq("id", businessId)
       .single();
 
-    if (error || !data) {
+    if (error) {
+      console.error("❌ Database error:", error);
       return res
         .status(404)
         .json({ success: false, error: "Business not found" });
     }
 
+    if (!data) {
+      console.log("❌ No business found for ID:", businessId);
+      return res
+        .status(404)
+        .json({ success: false, error: "Business not found" });
+    }
+
+    console.log("✅ Profile found:", data.name);
     res.json({ success: true, business: data });
   } catch (error) {
-    console.error("Profile fetch error:", error);
+    console.error("❌ Profile fetch error:", error);
     res
       .status(500)
       .json({ success: false, error: "Failed to fetch profile" });
