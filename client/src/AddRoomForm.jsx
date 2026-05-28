@@ -1,15 +1,7 @@
 ﻿import { useState } from 'react';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { showError, showSuccess } from './toast';
-// Direct API detection - no external file needed
-const getAPI_BASE = () => {
-  const hostname = window.location.hostname;
-  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('192.168')) {
-    return 'http://localhost:5000';
-  }
-  return 'https://booking-hub-api.onrender.com';
-};
-const API_BASE = getAPI_BASE();
+import API_BASE from './config';
 
 
 function AddRoomForm({ businessId, businessType, onBack, onRoomAdded }) {

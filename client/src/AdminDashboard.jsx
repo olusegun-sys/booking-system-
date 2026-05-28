@@ -6,16 +6,7 @@ import {
   Plus, Edit2, Trash2, Eye, RefreshCw, Download
 } from 'lucide-react';
 import { showSuccess, showError } from './toast';
-
-// Direct API detection - no external file needed
-const getAPI_BASE = () => {
-  const hostname = window.location.hostname;
-  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('192.168')) {
-    return 'http://localhost:5000';
-  }
-  return 'https://booking-hub-api.onrender.com';
-};
-const API_BASE = getAPI_BASE();
+import API_BASE from './config';
 
 function AdminDashboard({ admin, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview');
