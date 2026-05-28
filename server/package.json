@@ -1,11 +1,11 @@
 ﻿{
   "name": "server",
   "version": "1.0.0",
-  "description": "",
+  "description": "Booking Hub Backend API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "nodemon server.js"
   },
   "keywords": [],
   "author": "",
@@ -27,7 +27,3 @@
     "nodemon": "^3.1.14"
   }
 }
-<<<<<<< HEAD
-
-=======
->>>>>>> e5d67591d5d5e65dd3872cf1ede06216feb0ca5e
