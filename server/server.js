@@ -26,37 +26,16 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 5000;
 
 // ============================================================
-// CORS CONFIGURATION - PRODUCTION READY
+// CORS CONFIGURATION - CLEAN VERSION
 // ============================================================
-<<<<<<< HEAD
-const ALLOWED_ORIGINS = process.env.NODE_ENV === 'production'
-  ? (process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
-  : ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.1.122:5173'];
-
-app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) return callback(null, true);
-    if (ALLOWED_ORIGINS.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
-      callback(null, true);
-    } else {
-      console.log('Blocked CORS request from:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-=======
 const ALLOWED_ORIGINS =
   process.env.NODE_ENV === "production"
     ? process.env.ALLOWED_ORIGINS
       ? process.env.ALLOWED_ORIGINS.split(",")
-      : ["https://booking-system-fawn-beta.vercel.app"]
+      : ["https://booking-frontend-5e1e.onrender.com"]
     : [
         "http://localhost:5173",
         "http://localhost:3000",
@@ -82,9 +61,8 @@ app.use(
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+  })
 );
->>>>>>> e5d67591d5d5e65dd3872cf1ede06216feb0ca5e
 
 // ============================================================
 // RATE LIMITING
@@ -101,15 +79,15 @@ app.use(express.json({ limit: "10mb" }));
 app.use(detectBusinessFromDomain);
 
 // ============================================================
-// HEALTH CHECK - FOR RENDER MONITORING (ADDED)
+// HEALTH CHECK
 // ============================================================
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "ok",
     timestamp: Date.now(),
     uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development',
-    message: 'Booking Hub API is running'
+    environment: process.env.NODE_ENV || "development",
+    message: "Booking Hub API is running",
   });
 });
 
@@ -168,12 +146,6 @@ async function authenticateBusiness(req, res, next) {
     }
 
     if (session.business_id !== businessId) {
-      console.log({
-        session_business_id: session.business_id,
-        businessId,
-        req_business_id: req.businessId,
-      });
-
       return res.status(403).json({ success: false, error: "Access denied" });
     }
 
@@ -234,10 +206,9 @@ app.get("/api/test", (req, res) =>
   res.json({
     message: "Backend is connected!",
     timestamp: new Date().toISOString(),
-  }),
+  })
 );
 
-// Supabase Connection Test Endpoint
 app.get("/api/supabase-test", async (req, res) => {
   try {
     const { data, error, count } = await supabase
@@ -423,7 +394,7 @@ app.post("/api/businesses/register", async (req, res) => {
       });
     if (data) {
       sendWelcomeEmail(data).catch((err) =>
-        console.error("Welcome email failed:", err),
+        console.error("Welcome email failed:", err)
       );
     }
     res.json({
@@ -629,7 +600,7 @@ app.put("/api/admin/businesses/:id/status", async (req, res) => {
     if (error) throw error;
     if (req.body.status === "approved" && data) {
       sendApprovalEmail(data).catch((err) =>
-        console.error("Approval email failed:", err),
+        console.error("Approval email failed:", err)
       );
     }
     res.json({ success: true, business: data });
@@ -712,56 +683,39 @@ app.get("/api/admin/stats", async (req, res) => {
 // AUTHENTICATED BUSINESS ROUTES
 // ============================================================
 
-<<<<<<< HEAD
-app.get('/api/businesses/:businessId/rooms', authenticateBusiness, async (req, res) => {
+// GET BUSINESS PROFILE
+app.get("/api/businesses/profile", authenticateBusiness, async (req, res) => {
   try {
-    const { data, error } = await supabase.from('rooms').select('*').eq('business_id', req.params.businessId);
-    if (error) throw error;
-    res.json({ success: true, rooms: data });
-  } catch (error) { res.status(500).json({ error: 'Failed to fetch rooms' }); }
-});
-=======
-// ============================================================
-// GET BUSINESS PROFILE - FIXED (ADD THIS MISSING ENDPOINT)
-// ============================================================
+    const businessId = req.businessId;
 
-app.get(
-  "/api/businesses/:id/profile/",
-  authenticateBusiness,
-  async (req, res) => {
-    try {
-      // Get business ID from the authenticated session
-      const businessId = req.businessId;
-
-      if (!businessId) {
-        return res
-          .status(401)
-          .json({ success: false, error: "Not authenticated" });
-      }
-
-      const { data, error } = await supabase
-        .from("businesses")
-        .select(
-          "id, name, email, phone, city, state, logo_url, cover_image, business_type, slug, description, about_text, website, status, booking_limit, current_booking_count",
-        )
-        .eq("id", businessId)
-        .single();
-
-      if (error || !data) {
-        return res
-          .status(404)
-          .json({ success: false, error: "Business not found" });
-      }
-
-      res.json({ success: true, business: data });
-    } catch (error) {
-      console.error("Profile fetch error:", error);
-      res
-        .status(500)
-        .json({ success: false, error: "Failed to fetch profile" });
+    if (!businessId) {
+      return res
+        .status(401)
+        .json({ success: false, error: "Not authenticated" });
     }
-  },
-);
+
+    const { data, error } = await supabase
+      .from("businesses")
+      .select(
+        "id, name, email, phone, city, state, logo_url, cover_image, business_type, slug, description, about_text, website, status, booking_limit, current_booking_count"
+      )
+      .eq("id", businessId)
+      .single();
+
+    if (error || !data) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Business not found" });
+    }
+
+    res.json({ success: true, business: data });
+  } catch (error) {
+    console.error("Profile fetch error:", error);
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to fetch profile" });
+  }
+});
 
 app.get(
   "/api/businesses/:businessId/rooms",
@@ -777,7 +731,7 @@ app.get(
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch rooms" });
     }
-  },
+  }
 );
 
 app.post(
@@ -821,9 +775,8 @@ app.post(
         error: "Something went wrong. Please try again.",
       });
     }
-  },
+  }
 );
->>>>>>> e5d67591d5d5e65dd3872cf1ede06216feb0ca5e
 
 app.put(
   "/api/businesses/:businessId/rooms/:roomId",
@@ -879,7 +832,7 @@ app.put(
         error: "Something went wrong. Please try again.",
       });
     }
-  },
+  }
 );
 
 app.delete(
@@ -903,7 +856,7 @@ app.delete(
         error: "Something went wrong. Please try again.",
       });
     }
-  },
+  }
 );
 
 app.get(
@@ -923,7 +876,7 @@ app.get(
         .status(500)
         .json({ success: false, error: "Failed to fetch bookings" });
     }
-  },
+  }
 );
 
 app.put("/api/businesses/:id", authenticateBusiness, async (req, res) => {
@@ -1027,7 +980,7 @@ app.post("/api/bookings", async (req, res) => {
       .single();
     if (business) {
       sendBookingConfirmation({ ...booking, bookingDetails }, business).catch(
-        (err) => console.error("Email error:", err),
+        (err) => console.error("Email error:", err)
       );
     }
     res.json({
@@ -1226,7 +1179,7 @@ app.get(
     } catch (error) {
       res.status(500).json({ success: false, error: "Failed to fetch" });
     }
-  },
+  }
 );
 
 app.post(
@@ -1259,7 +1212,7 @@ app.post(
     } catch (error) {
       res.status(500).json({ success: false, error: "Failed to add" });
     }
-  },
+  }
 );
 
 app.put("/api/staff/:staffId", authenticateBusiness, async (req, res) => {
@@ -1306,7 +1259,7 @@ app.get(
     } catch (error) {
       res.status(500).json({ success: false, error: "Failed to fetch" });
     }
-  },
+  }
 );
 
 app.put(
@@ -1324,7 +1277,7 @@ app.put(
           req.body.operatingHours.map((h) => ({
             ...h,
             business_id: req.params.businessId,
-          })),
+          }))
         )
         .select();
       if (error) throw error;
@@ -1332,7 +1285,7 @@ app.put(
     } catch (error) {
       res.status(500).json({ success: false, error: "Failed to update" });
     }
-  },
+  }
 );
 
 app.get(
@@ -1351,7 +1304,7 @@ app.get(
     } catch (error) {
       res.status(500).json({ success: false, error: "Failed to fetch" });
     }
-  },
+  }
 );
 
 app.post(
@@ -1374,7 +1327,7 @@ app.post(
     } catch (error) {
       res.status(500).json({ success: false, error: "Failed to block" });
     }
-  },
+  }
 );
 
 app.delete(
@@ -1391,7 +1344,7 @@ app.delete(
     } catch (error) {
       res.status(500).json({ success: false, error: "Failed to unblock" });
     }
-  },
+  }
 );
 
 // ============================================================
@@ -1504,7 +1457,7 @@ app.get(
         .status(500)
         .json({ error: "Something went wrong. Please try again." });
     }
-  },
+  }
 );
 
 app.post(
@@ -1559,7 +1512,7 @@ app.post(
         .status(500)
         .json({ error: "Something went wrong. Please try again." });
     }
-  },
+  }
 );
 
 app.delete(
@@ -1615,7 +1568,7 @@ app.delete(
         .status(500)
         .json({ error: "Something went wrong. Please try again." });
     }
-  },
+  }
 );
 
 app.put(
@@ -1641,7 +1594,7 @@ app.put(
         .status(500)
         .json({ error: "Something went wrong. Please try again." });
     }
-  },
+  }
 );
 
 app.get("/api/rooms/:id/availability", async (req, res) => {
