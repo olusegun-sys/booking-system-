@@ -2,7 +2,7 @@
 import { 
   LayoutDashboard, Building2, Users, Calendar, DollarSign, 
   TrendingUp, CheckCircle, XCircle, Clock, Search, Filter,
-  ChevronRight, Menu, LogOut, Shield, Star, Phone, Mail,
+  ChevronRight, Menu, LogOut, Shield, Phone, Mail,
   Plus, Edit2, Trash2, Eye, RefreshCw, Download
 } from 'lucide-react';
 import { showSuccess, showError } from './toast';
@@ -92,7 +92,7 @@ function AdminDashboard({ admin, onLogout }) {
 
     businessesList.forEach(b => {
       if (b.status === 'pending') pending++;
-      if (b.status === 'active') active++;
+      if (b.status === 'approved') active++;
       totalBookings += (b.total_bookings || 0);
       totalRevenue += (b.total_revenue || 0);
     });
@@ -106,14 +106,16 @@ function AdminDashboard({ admin, onLogout }) {
     });
   };
 
+  // FIXED: Use correct endpoint /api/admin/businesses/:id/status with body { status: "approved" }
   const approveBusiness = async (businessId) => {
     try {
-      const response = await fetch(`${API_BASE}/api/admin/businesses/${businessId}/approve`, {
+      const response = await fetch(`${API_BASE}/api/admin/businesses/${businessId}/status`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + localStorage.getItem('admin_token')
-        }
+        },
+        body: JSON.stringify({ status: 'approved' })
       });
       const data = await response.json();
       if (data.success) {
@@ -123,20 +125,23 @@ function AdminDashboard({ admin, onLogout }) {
         showError(data.error || 'Failed to approve business');
       }
     } catch (err) {
+      console.error('Approve error:', err);
       showError('Something went wrong');
     }
   };
 
+  // FIXED: Use correct endpoint /api/admin/businesses/:id/status with body { status: "rejected" }
   const rejectBusiness = async (businessId) => {
     if (!confirm('Reject this business application?')) return;
     
     try {
-      const response = await fetch(`${API_BASE}/api/admin/businesses/${businessId}/reject`, {
+      const response = await fetch(`${API_BASE}/api/admin/businesses/${businessId}/status`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + localStorage.getItem('admin_token')
-        }
+        },
+        body: JSON.stringify({ status: 'rejected' })
       });
       const data = await response.json();
       if (data.success) {
@@ -146,6 +151,7 @@ function AdminDashboard({ admin, onLogout }) {
         showError(data.error || 'Failed to reject business');
       }
     } catch (err) {
+      console.error('Reject error:', err);
       showError('Something went wrong');
     }
   };
@@ -166,6 +172,7 @@ function AdminDashboard({ admin, onLogout }) {
         showError(data.error || 'Failed to delete business');
       }
     } catch (err) {
+      console.error('Delete error:', err);
       showError('Something went wrong');
     }
   };
@@ -176,7 +183,7 @@ function AdminDashboard({ admin, onLogout }) {
   };
 
   const getStatusBadge = (status) => {
-    if (status === 'active') {
+    if (status === 'approved') {
       return { color: '#10b981', bg: '#d1fae5', text: 'Active', icon: CheckCircle };
     } else if (status === 'pending') {
       return { color: '#f59e0b', bg: '#fef3c7', text: 'Pending', icon: Clock };
@@ -365,7 +372,7 @@ function AdminDashboard({ admin, onLogout }) {
             style: { padding: '10px 16px', border: '1.5px solid #e2e8f0', borderRadius: '40px', fontSize: '14px', background: 'white' }
           },
             React.createElement('option', { value: 'all' }, 'All Status'),
-            React.createElement('option', { value: 'active' }, 'Active'),
+            React.createElement('option', { value: 'approved' }, 'Active'),
             React.createElement('option', { value: 'pending' }, 'Pending'),
             React.createElement('option', { value: 'rejected' }, 'Rejected')
           )
@@ -441,13 +448,11 @@ function AdminDashboard({ admin, onLogout }) {
   };
 
   return React.createElement('div', { style: containerStyle },
-    // Mobile menu overlay
     !isDesktop && mobileMenuOpen && React.createElement('div', { 
       style: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 998 },
       onClick: () => setMobileMenuOpen(false)
     }),
     
-    // Sidebar
     React.createElement('div', { style: sidebarStyle },
       React.createElement('div', { style: { padding: '28px 20px', borderBottom: '1px solid #e2e8f0' } },
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } },
@@ -507,9 +512,7 @@ function AdminDashboard({ admin, onLogout }) {
       )
     ),
     
-    // Main Content
     React.createElement('div', { style: mainContentStyle },
-      // Mobile Header
       !isDesktop && React.createElement('div', { style: { background: 'white', padding: '16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } },
           React.createElement('div', { style: { width: '32px', height: '32px', background: '#4f46e5', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
@@ -522,11 +525,9 @@ function AdminDashboard({ admin, onLogout }) {
         )
       ),
       
-      // Content Area
       React.createElement('div', { style: { padding: isDesktop ? '32px' : '20px' } }, renderContent())
     ),
     
-    // Business Details Modal
     showBusinessModal && selectedBusiness && React.createElement('div', { 
       style: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' },
       onClick: () => setShowBusinessModal(false)

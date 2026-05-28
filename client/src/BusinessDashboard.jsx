@@ -1,4 +1,4 @@
-﻿﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Calendar,
@@ -83,26 +83,30 @@ function BusinessDashboard() {
     );
   }, []);
 
+  // FIXED: Use correct endpoint /api/businesses/profile (no ID in URL)
   async function fetchBusinessData() {
     try {
       const storedBusiness = localStorage.getItem("currentBusiness");
-      if (!storedBusiness) {
-        throw new Error("No business data");
+      if (storedBusiness) {
+        try {
+          const parsed = JSON.parse(storedBusiness);
+          setBusiness(parsed);
+        } catch (e) {
+          console.error("Parse error:", e);
+        }
       }
-      const parsed = JSON.parse(storedBusiness);
-      setBusiness(parsed);
 
-      const resp = await fetch(
-        `${API_BASE}/api/businesses/${parsed.id}/profile`,
-        {
-          headers: { Authorization: "Bearer " + token },
-        },
-      );
+      // CORRECT ENDPOINT: /api/businesses/profile (uses auth token to identify business)
+      const resp = await fetch(`${API_BASE}/api/businesses/profile`, {
+        headers: { Authorization: "Bearer " + token }
+      });
 
       const data = await resp.json();
       if (data.success && data.business) {
         setBusiness(data.business);
         localStorage.setItem("currentBusiness", JSON.stringify(data.business));
+      } else {
+        console.error("Profile fetch failed:", data.error);
       }
     } catch (err) {
       console.error("Fetch business error:", err);
